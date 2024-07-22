@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  destination:
+    namespace: monitoring
+    server: {{ .Values.spec.destination.server }}
+  project: default
+  source:
+    chart: loki
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 6.6.5
+    helm:
+      releaseName: loki
+      valuesObject:
+        deploymentMode: SingleBinary
+        loki:
+          commonConfig:
+            replication_factor: 1
+          storage:
+            type: 'filesystem'
+          schemaConfig:
+            configs:
+            - from: "2024-01-01"
+              store: tsdb
+              index:
+                prefix: loki_index_
+                period: 24h
+              object_store: filesystem # we're storing on filesystem so there's no real persistence here.
+              schema: v13
+          auth_enabled: false
+        singleBinary:
+          replicas: 1
+        read:
+          replicas: 0
+        backend:
+          replicas: 0
+        write:
+          replicas: 0
+        chunksCache:
+          # -- Specifies whether memcached based chunks-cache should be enabled
+          enabled: false
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    automated: 
+       prune: true
+       selfHeal: true

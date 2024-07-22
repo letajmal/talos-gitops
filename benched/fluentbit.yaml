@@ -1,0 +1,150 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  destination:
+    namespace: monitoring
+    server: {{ .Values.spec.destination.server }}
+  project: default
+  source:
+    chart: fluent-bit
+    repoURL: https://fluent.github.io/helm-charts
+    targetRevision: 0.47.2
+    helm:
+      releaseName: fluent-bit
+      valuesObject:
+        image:
+          # Here we use the Docker image which has the plugin installed
+          repository: grafana/fluent-bit-plugin-loki
+          tag: main-e2ed1c0
+
+        args:
+          - "-e"
+          - "/fluent-bit/bin/out_grafana_loki.so"
+          - --workdir=/fluent-bit/etc
+          - --config=/fluent-bit/etc/conf/fluent-bit.conf
+
+        env:
+          # Note that for security reasons you should fetch the credentials through a Kubernetes Secret https://kubernetes.io/docs/concepts/configuration/secret/ . You may use the envFrom for this.
+          - name: FLUENT_LOKI_URL
+            value: http://loki:3100/loki/api/v1/push
+
+        podAnnotations:
+          fluentbit.io/exclude: 'true'
+
+        extraPorts:
+          - port: 12345
+            containerPort: 12345
+            protocol: TCP
+            name: talos
+
+        config:
+          service: |
+            [SERVICE]
+              Daemon Off
+              Flush 5
+              Log_Level warn
+              Parsers_File /fluent-bit/etc/parsers.conf
+              Parsers_File /fluent-bit/etc/conf/custom_parsers.conf
+              HTTP_Server On
+              HTTP_Listen 0.0.0.0
+              HTTP_Port 2020
+              Health_Check On             
+
+          inputs: |
+            [INPUT]
+              Name          tcp
+              Listen        0.0.0.0
+              Port          12345
+              Format        json
+              Tag           talos.*
+
+            [INPUT]
+              Name          tail
+              Alias         kubernetes
+              Path          /var/log/containers/*.log
+              Parser        containerd
+              Tag           kubernetes.*
+              Mem_Buf_Limit 5MB
+              Skip_Long_Lines On
+
+            [INPUT]
+              Name          tail
+              Alias         audit
+              Path          /var/log/audit/kube/*.log
+              Parser        audit
+              Tag           audit.*    
+
+          filters: |
+            [FILTER]
+              Name                kubernetes
+              Alias               kubernetes
+              Match               kubernetes.*
+              Kube_Tag_Prefix     kubernetes.var.log.containers.
+              Use_Kubelet         Off
+              Merge_Log           On
+              Merge_Log_Trim      On
+              Keep_Log            Off
+              K8S-Logging.Parser  Off
+              K8S-Logging.Exclude On
+              Annotations         Off
+              Labels              On
+
+            [FILTER]
+              Name          modify
+              Match         kubernetes.*
+              Add           source kubernetes
+              Remove        logtag    
+
+          customParsers: |
+            [PARSER]
+              Name          audit
+              Format        json
+              Time_Key      requestReceivedTimestamp
+              Time_Format   %Y-%m-%dT%H:%M:%S.%L%z
+
+            [PARSER]
+              Name          containerd
+              Format        regex
+              Regex         ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+              Time_Key      time
+              Time_Format   %Y-%m-%dT%H:%M:%S.%L%z    
+
+          outputs: |
+            [Output]
+              Name grafana-loki
+              Match *
+              Url ${FLUENT_LOKI_URL}
+              Labels {job="fluent-bit"}
+              LabelKeys level,app # this sets the values for actual Loki streams and the other labels are converted to structured_metadata https://grafana.com/docs/loki/<LOKI_VERSION>/get-started/labels/structured-metadata/
+              BatchWait 1
+              BatchSize 1001024
+              LineFormat json
+              LogLevel info
+              AutoKubernetesLabels true
+
+        daemonSetVolumes:
+          - name: varlog
+            hostPath:
+              path: /var/log
+
+        daemonSetVolumeMounts:
+          - name: varlog
+            mountPath: /var/log
+
+        tolerations:
+          - operator: Exists
+            effect: NoSchedule
+
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    automated: 
+       prune: true
+       selfHeal: true

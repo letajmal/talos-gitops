@@ -1,0 +1,10 @@
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: first-pool-l2ad
+  namespace: metallb-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  ipAddressPools:
+  - first-pool

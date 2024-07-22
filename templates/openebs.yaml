@@ -1,0 +1,49 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openebs
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  destination:
+    namespace: openebs
+    server: {{ .Values.spec.destination.server }}
+  project: default
+  source:
+    chart: openebs
+    repoURL: https://openebs.github.io/openebs
+    targetRevision: 4.1.0
+    helm:
+      releaseName: openebs
+      valuesObject:
+        engines:
+          local:
+            lvm:
+              enabled: false
+            zfs:
+              enabled: false
+          replicated:
+            mayastor:
+              enabled: false
+        localpv-provisioner:
+          hostpathClass:
+            # Name of the default hostpath StorageClass
+            name: openebs-hostpath
+            # If true, enables creation of the openebs-hostpath StorageClass
+            enabled: true
+            # Available reclaim policies: Delete/Retain, defaults: Delete.
+            reclaimPolicy: Delete
+            # If true, sets the openebs-hostpath StorageClass as the default StorageClass
+            isDefaultClass: true
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: privileged
+    automated: 
+       prune: true
+       selfHeal: true

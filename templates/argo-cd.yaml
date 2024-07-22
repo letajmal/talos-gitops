@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  destination:
+    namespace: argocd
+    server: {{ .Values.spec.destination.server }}
+  project: default
+  source:
+    chart: argo-cd
+    repoURL: https://argoproj.github.io/argo-helm
+    targetRevision: 7.3.4
+    helm:
+      releaseName: argocd
+      valuesObject:
+        configs:
+          params:
+            server.insecure: true
+        server:
+          ingress:
+            enabled: true
+            annotations:
+              nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+              nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+            ingressClassName: "nginx"
+            hostname: "argocd.cluster.tridz.in"
+
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    automated: 
+       prune: true
+       selfHeal: true

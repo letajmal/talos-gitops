@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ingress-nginx
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  destination:
+    namespace: ingress-nginx
+    server: {{ .Values.spec.destination.server }}
+  project: default
+  source:
+    chart: ingress-nginx
+    repoURL: https://kubernetes.github.io/ingress-nginx
+    targetRevision: 4.10.1
+    helm:
+      releaseName: ingress-nginx
+  syncPolicy:
+    syncOptions:
+    - CreateNamespace=true
+    automated: 
+       prune: true
+       selfHeal: true
