@@ -65,7 +65,38 @@ talosctl -n <IP address of your control plane> apply-config --file controlplane.
 kubectl taint node <Control plane node name> node-role.kubernetes.io/control-plane:NoSchedule-
 ```
 
+#### Deploying argo-cd and sealed-secrets-controller
+
 ```bash
 cd terraform/
+terraform init
+terraform validate
+terraform plan
+terraform apply
+```
 
+#### Deploying SealedSecret for argocd repository and app of apps argo applications
+
+create a secret for adding your first argocd repository
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: gitops-repo
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  type: git
+  url: <REPO>
+  password: <TOKEN>
+  username: <USERNAME>
+```
+we are going to convert this secret to a sealed secret
+
+```bash
+cat gitops-repo.yaml | kubeseal --format yaml > app2repo.yaml
+kubectl apply -f app2repo.yaml
+# creating our first argocd application which can bootstrap the rest of the cluster, dont forget to replace templated values
+kubectl apply -f helm/templates/bootstrap.yaml
 ```

@@ -13,7 +13,7 @@ spec:
     server: {{ .Values.spec.destination.server }}
   project: default
   source:
-    path: '.'
+    path: 'helm'
     repoURL: https://github.com/letajmal/talos-gitops
     targetRevision: main
   syncPolicy:
