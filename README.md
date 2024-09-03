@@ -3,6 +3,7 @@
 ## Creating Talos cluster(single node)
 ```bash
 # clone this repo
+cd <repo>
 # Download the talos iso
 wget --timestamping https://github.com/siderolabs/talos/releases/download/v1.7.6/metal-amd64.iso -O tmp/metal-amd64.iso
 
@@ -28,5 +29,43 @@ talosctl -n <IP address of your control plane> bootstrap
 talosctl -n <IP address of your control plane> kubeconfig ./kubeconfig
 # List the nodes in the cluster
 kubectl --kubeconfig ./kubeconfig get node -owide
+
+```
+
+## Bootstrapping cluster
+
+We manage Helm package installations in the cluster using ArgoCD. Before deploying applications with ArgoCD, we manually provision ArgoCD and its supporting tools using the Terraform Helm provider.
+
+### Pre-Req
+
+#### Local storage
+Making changes to the cluster to configure [local storage](https://www.talos.dev/v1.7/kubernetes-guides/configuration/local-storage/)
+
+add the following to controlplane.yaml
+
+```yaml
+...
+        extraMounts:
+            - destination: /var/openebs/local # Destination is the absolute path where the mount will be placed in the >              type: bind # Type specifies the mount kind.
+              source: /var/openebs/local # Source specifies the source path of the mount.
+              # Options are fstab style mount options.
+              options:
+                - bind
+                - rshared
+                - rw
+```
+we are deploying openebs local storage as the local storage solution
+```bash
+talosctl -n <IP address of your control plane> apply-config --file controlplane.yaml
+```
+
+#### Removing taint from control plane node
+
+```bash
+kubectl taint node <Control plane node name> node-role.kubernetes.io/control-plane:NoSchedule-
+```
+
+```bash
+cd terraform/
 
 ```
