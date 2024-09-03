@@ -1,0 +1,28 @@
+Vagrant.configure("2") do |config|
+    config.vm.define "control-plane-node-1" do |vm|
+      vm.vm.provider :libvirt do |domain|
+        domain.cpus = 8
+        domain.memory = 8092
+        domain.serial :type => "file", :source => {:path => "/home/ubuntu/talos/tmp/control-plane-node-1.log"}
+        domain.storage :file, :device => :cdrom, :path => "/home/ubuntu/talos/tmp/metal-amd64.iso"
+        domain.storage :file, :size => '50G', :type => 'raw'
+        domain.boot 'hd'
+        domain.boot 'cdrom'
+        domain.storage_pool_name = "ubuntu"
+      end
+    end
+
+    # config.vm.define "worker-node-1" do |vm|
+    #   vm.vm.provider :libvirt do |domain|
+    #     domain.cpus = 8
+    #     domain.memory = 8092
+    #     domain.serial :type => "file", :source => {:path => "/home/ubuntu/talos/tmp/worker-node-1.log"}
+    #     domain.storage :file, :device => :cdrom, :path => "/home/ubuntu/talos/tmp/metal-amd64.iso"
+    #     domain.storage :file, :size => '50G', :type => 'raw'
+    #     domain.boot 'hd'
+    #     domain.boot 'cdrom'
+    #     domain.storage_pool_name = "ubuntu"
+    #   end
+    # end
+
+  end
